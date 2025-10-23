@@ -1,0 +1,21 @@
+INSERT INTO categories (name) VALUES
+  ('Books'),
+  ('Electronics'),
+  ('Computers & Laptops'),
+  ('Phones & Tablets'),
+  ('Furniture'),
+  ('Kitchen & Appliances'),
+  ('Dorm & Decor'),
+  ('Bikes & Scooters'),
+  ('Sports & Outdoors'),
+  ('Clothing & Accessories'),
+  ('Musical Instruments'),
+  ('Gaming'),
+  ('Tickets & Events'),
+  ('Beauty & Personal Care'),
+  ('School Supplies'),
+  ('Storage & Organization'),
+  ('Car & Bike Accessories'),
+  ('Free / Donate'),
+  ('Other')
+ON CONFLICT (name) DO NOTHING;
