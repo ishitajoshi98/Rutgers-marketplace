@@ -51,7 +51,7 @@ def add_fullscreen_bg(image_file):
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background-color: rgba(0, 0, 0, 0.3);
+                background-color: rgba(0, 0, 0, 0.4);
                 z-index: 0;
             }}
 
@@ -69,10 +69,35 @@ def add_fullscreen_bg(image_file):
 
 
 
+
 # Load .env (for future DB use)
 load_dotenv()
 
-st.set_page_config(page_title="Rutgers Marketplace", page_icon="🛒", layout="wide")
+st.set_page_config(page_title="Rutgers Marketplace!", page_icon="🛒", layout="wide")
+
+# # Force global font override in Streamlit
+# st.markdown("""
+#     <style>
+#         /* Apply Book Antiqua for all text globally */
+#         html, body, [class*="st-"], [data-testid="stAppViewContainer"] * {
+#             font-family: 'Book Antiqua', 'Bookman Old Style', serif !important;
+#         }
+
+#         /* Make titles specifically use Bookman Old Style */
+#         h1, h2, h3, .auth-title, .stMarkdown h2 {
+#             font-family: 'Bookman Old Style', serif !important;
+#             color: white !important;
+#         }
+
+#         /* Optional: make captions softer */
+#         .auth-caption {
+#             color: #dddddd !important;
+#             font-family: 'Book Antiqua', serif !important;
+#         }
+#     </style>
+# """, unsafe_allow_html=True)
+
+
 
 # --- session bootstrap ---
 if "user" not in st.session_state:
@@ -88,81 +113,184 @@ except Exception as e:
 
 
 
+
+
+#BOXED LAYOUT
 def render_logged_out():
     # Hide sidebar when logged out for a cleaner look
     st.markdown("""
         <style>
             section[data-testid="stSidebar"] { display: none !important; }
-            .auth-title, h2.auth-title, div[data-testid="stMarkdownContainer"] h2.auth-title {text-align: center;
-            margin-bottom: 6px; font-size: 60px !important; line-height: 1.2;} 
-            .auth-caption { text-align: center;  margin-bottom: 18px; }
-            .auth-tabs [data-baseweb="tab-list"] { justify-content: center; }
+
+            .auth-title, h2.auth-title, div[data-testid="stMarkdownContainer"] h2.auth-title {
+                text-align: center;
+                margin-bottom: 6px;
+                font-size: 40px !important;
+                line-height: 0.5;
+                color: #ffffff;
+            }
+
+            .auth-caption {
+                text-align: center;
+                margin-bottom: 18px;
+                color: #ccc;
+                font-size: 16px;
+            }
+
+            /* optional: soften the container look a bit */
+            .boxed-inner {
+                padding: 5px 32px 28px 32px;  /* top, right, bottom, left */
+                max-width: 200px;                /* controls box width */
+                margin: 0 auto;                  /* centers the box horizontally */
+            }
         </style>
     """, unsafe_allow_html=True)
 
-    #.auth-title { text-align: center; margin-bottom: 6px; font-size: 45px;}
-    #color: #6b7280;
-    add_fullscreen_bg("app/Rutgersbg3.jpg")
 
 
 
     # Center column layout: empty | content | empty
     left, center, right = st.columns([1, 2, 1])
     with center:
-        # Title & caption (centered)
-        st.markdown('<h2 class="auth-title">🛒 Rutgers Marketplace</h2>', unsafe_allow_html=True)
-        st.markdown('<div class="auth-caption">Rutgers-only, safe student-to-student marketplace</div>', unsafe_allow_html=True)
+        # --- Native Streamlit container so tabs/forms are inside the SAME box ---
+        with st.container(border=True):
+            # Extra padding inside the bordered container
+            st.markdown('<div class="boxed-inner">', unsafe_allow_html=True)
 
-        if not _auth_available:
-            st.info("Auth backend not implemented yet (we'll add it in the next step). Buttons are disabled for now.")
+            # Title & caption (centered)
+            st.markdown('<h2 class="auth-title">🛒 Welcome to Rutgers Marketplace</h2>', unsafe_allow_html=True)
+            st.markdown('<div class="auth-caption">Rutgers-only, safe student-to-student marketplace</div>', unsafe_allow_html=True)
 
-        st.divider()
+            st.divider()
 
-        # Centered tabs
-        tab_login, tab_register = st.tabs(["🔑 Login", "🆕 Register"])
-        with tab_login:
-            with st.form("login_form", clear_on_submit=False):
-                email = st.text_input("Rutgers Email", placeholder="you@rutgers.edu")
-                password = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Login", use_container_width=True)
+            if not _auth_available:
+                st.info("Auth backend not implemented yet (we'll add it in the next step). Buttons are disabled for now.")
 
-            if submitted:
-                if not _auth_available:
-                    st.error("Auth backend not loaded. Restart Streamlit from the project root.")
-                else:
-                    user = authenticate_user(email, password)
-                    if user:
-                        st.session_state.user = {"id": str(user.id), "name": user.name, "email": user.email}
-                        st.success("Logged in successfully.")
-                        st.rerun()
+            # Centered tabs INSIDE the same bordered box
+            tab_login, tab_register = st.tabs(["🔑 Login", "🆕 Register"])
+
+            with tab_login:
+                with st.form("login_form", clear_on_submit=False):
+                    email = st.text_input("Rutgers Email", placeholder="you@rutgers.edu")
+                    password = st.text_input("Password", type="password")
+                    submitted = st.form_submit_button("Login", use_container_width=True)
+
+                if submitted:
+                    if not _auth_available:
+                        st.error("Auth backend not loaded. Restart Streamlit from the project root.")
                     else:
-                        st.error("Invalid email or password.")
-
-        with tab_register:
-            with st.form("register_form", clear_on_submit=False):
-                name = st.text_input("Full Name", placeholder="Jane Doe")
-                email_new = st.text_input("Rutgers Email (@rutgers.edu or @scarletmail.rutgers.edu)", placeholder="netid@rutgers.edu")
-                password_new = st.text_input("Password (min 6 chars)", type="password")
-                submitted_r = st.form_submit_button("Create Account", use_container_width=True)
-
-            if submitted_r:
-                if not _auth_available:
-                    st.error("Auth backend not loaded. Restart Streamlit from the project root.")
-                else:
-                    if not is_rutgers_email(email_new):
-                        st.error("Please use a Rutgers email address.")
-                    else:
-                        ok, msg = register_user(name, email_new, password_new)
-                        if ok:
-                            st.success(msg)
-                            st.info("Now switch to the Login tab to sign in.")
+                        user = authenticate_user(email, password)
+                        if user:
+                            st.session_state.user = {"id": str(user.id), "name": user.name, "email": user.email}
+                            st.success("Logged in successfully.")
+                            st.rerun()
                         else:
-                            st.error(msg)
+                            st.error("Invalid email or password.")
+
+            with tab_register:
+                with st.form("register_form", clear_on_submit=False):
+                    name = st.text_input("Full Name", placeholder="Jane Doe")
+                    email_new = st.text_input(
+                        "Rutgers Email (@rutgers.edu or @scarletmail.rutgers.edu)",
+                        placeholder="netid@rutgers.edu"
+                    )
+                    password_new = st.text_input("Password (min 6 chars)", type="password")
+                    submitted_r = st.form_submit_button("Create Account", use_container_width=True)
+
+                if submitted_r:
+                    if not _auth_available:
+                        st.error("Auth backend not loaded. Restart Streamlit from the project root.")
+                    else:
+                        if not is_rutgers_email(email_new):
+                            st.error("Please use a Rutgers email address.")
+                        else:
+                            ok, msg = register_user(name, email_new, password_new)
+                            if ok:
+                                st.success(msg)
+                                st.info("Now switch to the Login tab to sign in.")
+                            else:
+                                st.error(msg)
+
+            st.markdown('</div>', unsafe_allow_html=True)  # close .boxed-inner
+
+
+
+
+# OG LAYOUT
+# def render_logged_out():
+#     # Hide sidebar when logged out for a cleaner look
+#     st.markdown("""
+#         <style>
+#             section[data-testid="stSidebar"] { display: none !important; }
+#             .auth-title, h2.auth-title, div[data-testid="stMarkdownContainer"] h2.auth-title {text-align: center;
+#             margin-bottom: 6px; font-size: 60px !important; line-height: 1.2;} 
+#             .auth-caption { text-align: center;  margin-bottom: 18px; }
+#             .auth-tabs [data-baseweb="tab-list"] { justify-content: center; }
+#         </style>
+#     """, unsafe_allow_html=True)
+
+#     #.auth-title { text-align: center; margin-bottom: 6px; font-size: 45px;}
+#     #color: #6b7280;
+    
+
+
+#     # Center column layout: empty | content | empty
+#     left, center, right = st.columns([1, 2, 1])
+#     with center:
+#         # Title & caption (centered)
+#         st.markdown('<h2 class="auth-title">🛒 Rutgers Marketplace</h2>', unsafe_allow_html=True)
+#         st.markdown('<div class="auth-caption">Rutgers-only, safe student-to-student marketplace</div>', unsafe_allow_html=True)
+
+#         if not _auth_available:
+#             st.info("Auth backend not implemented yet (we'll add it in the next step). Buttons are disabled for now.")
+
+#         st.divider()
+
+#         # Centered tabs
+#         tab_login, tab_register = st.tabs(["🔑 Login", "🆕 Register"])
+#         with tab_login:
+#             with st.form("login_form", clear_on_submit=False):
+#                 email = st.text_input("Rutgers Email", placeholder="you@rutgers.edu")
+#                 password = st.text_input("Password", type="password")
+#                 submitted = st.form_submit_button("Login", use_container_width=True)
+
+#             if submitted:
+#                 if not _auth_available:
+#                     st.error("Auth backend not loaded. Restart Streamlit from the project root.")
+#                 else:
+#                     user = authenticate_user(email, password)
+#                     if user:
+#                         st.session_state.user = {"id": str(user.id), "name": user.name, "email": user.email}
+#                         st.success("Logged in successfully.")
+#                         st.rerun()
+#                     else:
+#                         st.error("Invalid email or password.")
+
+#         with tab_register:
+#             with st.form("register_form", clear_on_submit=False):
+#                 name = st.text_input("Full Name", placeholder="Jane Doe")
+#                 email_new = st.text_input("Rutgers Email (@rutgers.edu or @scarletmail.rutgers.edu)", placeholder="netid@rutgers.edu")
+#                 password_new = st.text_input("Password (min 6 chars)", type="password")
+#                 submitted_r = st.form_submit_button("Create Account", use_container_width=True)
+
+#             if submitted_r:
+#                 if not _auth_available:
+#                     st.error("Auth backend not loaded. Restart Streamlit from the project root.")
+#                 else:
+#                     if not is_rutgers_email(email_new):
+#                         st.error("Please use a Rutgers email address.")
+#                     else:
+#                         ok, msg = register_user(name, email_new, password_new)
+#                         if ok:
+#                             st.success(msg)
+#                             st.info("Now switch to the Login tab to sign in.")
+#                         else:
+#                             st.error(msg)
 
 
 def render_logged_in():
     # Sidebar nav ONLY when logged in
-    PAGES = ["Home", "Browse Items", "Post Item", "My Listings"]
+    PAGES = ["Home", "Post Item", "My Listings"]
     if "selected_page" not in st.session_state:
         st.session_state.selected_page = "Home"
     st.sidebar.success(f"Logged in as {st.session_state.user['name']}")
@@ -177,13 +305,6 @@ def render_logged_in():
     st.caption("Rutgers-only, safe student-to-student marketplace")
 
     if page == "Home":
-        st.subheader("Welcome!")
-        st.write(
-            "You’re logged in. Use the sidebar to browse or post an item. "
-            "In the next steps, we’ll connect this UI to the database."
-        )
-
-    elif page == "Browse Items":
         render_browse_items()
 
     elif page == "Post Item":
@@ -308,7 +429,7 @@ def render_browse_items():
 
 
     # Filters row
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+    col1, col2, col3, col4 = st.columns([40, 15, 7, 0.7])
 
     # Load categories for dropdown
     s = Session()
@@ -384,7 +505,7 @@ def render_browse_items():
     """)
 
     # Handle pagination controls
-    col_prev, col_stat, col_next = st.columns([1, 2, 1])
+    col_prev, col_stat, col_next = st.columns([0.3, 3, 0.3])
     with col_prev:
         if st.button("⬅️ Prev", use_container_width=True, disabled=st.session_state.browse_page <= 1):
             st.session_state.browse_page = max(1, st.session_state.browse_page - 1)
@@ -420,6 +541,21 @@ def render_browse_items():
         st.info("No items matched your filters yet.")
         return
 
+
+    # Add uniform image sizing via CSS
+    st.markdown("""
+        <style>
+            .uniform-img img {
+                object-fit: cover;      /* Crop rather than stretch */
+                width: 100%;            /* Fit column width */
+                height: 350px;          /* Set consistent height */
+                border-radius: 10px;     /* Optional: smooth corners */
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                margin-bottom: 12px;    /*  Adds gap below image */
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     # Grid of cards
     cols_per_row = 3
     for i in range(0, len(rows), cols_per_row):
@@ -435,7 +571,11 @@ def render_browse_items():
                 img_md = ""
                 if r["image_path"]:
                     abs_path = os.path.join(os.getenv("UPLOAD_DIR", "uploads"), r["image_path"]).replace("\\", "/")
-                    st.image(abs_path, use_container_width=True)
+                    st.markdown(f"""
+                        <div class="uniform-img">
+                            <img src="data:image/jpeg;base64,{base64.b64encode(open(abs_path, "rb").read()).decode()}" />
+                        </div>
+                    """, unsafe_allow_html=True)
                 else:
                     st.caption("No image")
 
@@ -673,7 +813,7 @@ def render_my_listings():
         s.close()
 
     # pagination controls
-    col_prev, col_stat, col_next = st.columns([1, 2, 1])
+    col_prev, col_stat, col_next = st.columns([0.3, 3, 0.3])
     with col_prev:
         if st.button("⬅️ Prev", use_container_width=True, disabled=page <= 1):
             st.session_state[key_page] = max(1, page - 1)
@@ -778,6 +918,7 @@ def render_my_listings():
 # --- Gate the app ---
 if st.session_state.user is None:
     # Signed-out view: ONLY show Login/Register (no sidebar nav)
+    add_fullscreen_bg("app/Rutgersbg.jpg")
     render_logged_out()
 else:
     # Signed-in view: full app with sidebar
