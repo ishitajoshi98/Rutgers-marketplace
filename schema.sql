@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS items (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','closed','sold')),
   listing_type TEXT NOT NULL DEFAULT 'auction' CHECK (listing_type IN ('auction','fixed')),
   buy_now_price NUMERIC(10,2) CHECK (buy_now_price IS NULL OR buy_now_price >= 0),
+  pickup_location TEXT,
+  pickup_lat DOUBLE PRECISION,
+  pickup_lng DOUBLE PRECISION,
   auction_end_at TIMESTAMPTZ,
   chosen_bid_id UUID, -- FK added after bids table exists
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

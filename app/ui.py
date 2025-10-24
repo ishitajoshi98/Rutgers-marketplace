@@ -350,6 +350,7 @@ def render_post_item():
     with st.form("post_item_form", clear_on_submit=False):
         title = st.text_input("Title")
         description = st.text_area("Description", height=120)
+        pickup_location = st.text_input("Pickup Location (e.g., College Ave, Livingston)", max_chars=100)
         listing_type = st.radio("Listing type", ["auction", "fixed"], horizontal=True)
         if listing_type == "fixed":
             buy_now_price = st.number_input("Price (USD)", min_value=0.0, value=10.0, step=1.0)
@@ -393,6 +394,9 @@ def render_post_item():
                 status="active",
                 listing_type=listing_type,
                 buy_now_price=buy_now_price,
+                pickup_location=pickup_location.strip() or None,
+                pickup_lat=None,  # for future
+                pickup_lng=None   # for future
             )
             s.add(item)
             s.flush()  # get item.id
@@ -485,11 +489,13 @@ def render_browse_items():
         WITH base AS (
             SELECT i.id, i.title, i.price, i.created_at,
                    COALESCE(ci.name, 'Uncategorized') AS category,
-                   u.email AS seller_email
+                   u.email AS seller_email,
+                   i.pickup_location
             FROM items i
             LEFT JOIN categories ci ON ci.id = i.category_id
             JOIN users u ON u.id = i.seller_id
-            WHERE {where_sql}
+            WHERE i.status = 'active'
+            {"AND ci.name = :cat_name" if selected_cat != "All categories" else ""}
             ORDER BY i.created_at DESC
         ),
         img AS (
@@ -504,7 +510,8 @@ def render_browse_items():
             GROUP BY ii.item_id
         )
         SELECT b.id, b.title, b.price, b.category, b.seller_email, b.created_at,
-               COALESCE(img.image_path, NULL) AS image_path
+               COALESCE(img.image_path, NULL) AS image_path,
+               b.pickup_location
         FROM base b
         LEFT JOIN img ON img.item_id = b.id
         LIMIT :limit OFFSET :offset
@@ -587,6 +594,8 @@ def render_browse_items():
 
                 st.markdown(f"**{r['title']}**")
                 st.caption(f"{r['category']} • {r['seller_email']}")
+                if r["pickup_location"]:
+                    st.caption(f"📍 Pickup from: {r['pickup_location']}")
                 st.write(f"${r['price']:.2f}")
                 if st.button("View", key=f"view_{r['id']}"):
                     st.session_state.viewing_item_id = str(r["id"])  # stay on Browse, show detail inline
@@ -613,7 +622,8 @@ def render_item_detail(item_id_str: str):
         item_row = s.execute(text("""
             SELECT i.id, i.title, i.description, i.price, i.status, i.listing_type,
                    COALESCE(c.name, 'Uncategorized') AS category,
-                   u.email AS seller_email, u.id AS seller_id
+                   u.email AS seller_email, u.id AS seller_id,
+                   i.pickup_location
             FROM items i
             LEFT JOIN categories c ON c.id = i.category_id
             JOIN users u ON u.id = i.seller_id
@@ -655,6 +665,9 @@ def render_item_detail(item_id_str: str):
     with col_info:
         st.markdown(f"### {item_row['title']}")
         st.caption(f"{item_row['category']} • Seller: {item_row['seller_email']}")
+        if item_row["pickup_location"]:
+            st.caption(f"📍 Pickup from: {item_row['pickup_location']}")
+
         st.write(item_row["description"])
         st.write(f"**Price:** ${item_row['price']:.2f}")
         st.write(f"**Status:** {item_row['status']} • **Type:** {item_row['listing_type']}")
