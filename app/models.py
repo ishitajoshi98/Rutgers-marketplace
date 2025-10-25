@@ -53,4 +53,6 @@ class Bid(Base):
     item_id: Mapped[uuid.UUID]   = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=False)
     bidder_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     amount: Mapped[float]        = mapped_column(Numeric(10,2), nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="not_accepted")  # accepted / not_accepted
+
     # placed_at set by DB default

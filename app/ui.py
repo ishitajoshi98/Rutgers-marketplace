@@ -720,31 +720,37 @@ def render_item_detail(item_id_str: str):
                 elif user["email"] == item_row["seller_email"]:
                     st.info("You are the seller; you cannot purchase your own item.")
                 else:
-                    if st.button("Buy Now", type="primary", use_container_width=True):
-                        sb = Session()
-                        try:
-                            # create a 'bid' representing the purchase
-                            res = sb.execute(text("""
-                                INSERT INTO bids (item_id, bidder_id, amount)
-                                VALUES (:iid, :bidder, :amt)
-                                RETURNING id
-                            """), {"iid": str(item_row["id"]), "bidder": user["id"], "amt": float(item_row["price"])})
-                            bid_id = res.scalar_one()
+                    sb = Session()
+                    try:
+                        # Check if user already placed an offer 
+                        existing = sb.execute(text("""
+                            SELECT id, status FROM bids
+                            WHERE item_id = :iid AND bidder_id = :bidder
+                        """), {"iid": str(item_row["id"]), "bidder": user["id"]}).mappings().first()
 
-                            # mark sold to this buyer
-                            sb.execute(text("""
-                                UPDATE items
-                                SET status = 'sold', chosen_bid_id = :bid
-                                WHERE id = :iid
-                            """), {"iid": str(item_row["id"]), "bid": str(bid_id)})
-                            sb.commit()
-                            st.success("Purchase successful. Item marked as sold.")
-                            st.rerun()
-                        except Exception as e:
-                            sb.rollback()
-                            st.error(f"Failed to complete purchase: {e}")
-                        finally:
-                            sb.close()
+                        if existing:
+                            if existing["status"] == "accepted":
+                                st.success("Seller accepted your offer!")
+                            else:
+                                st.info("Your offer is already submitted. Waiting for seller to respond.")
+                        else:
+                            if st.button("Buy Now", type="primary", use_container_width=True):
+                                sb.execute(text("""
+                                    INSERT INTO bids (item_id, bidder_id, amount, status)
+                                    VALUES (:iid, :bidder, :amt, 'not_accepted')
+                                """), {
+                                    "iid": str(item_row["id"]),
+                                    "bidder": user["id"],
+                                    "amt": float(item_row["price"])
+                                })
+                                sb.commit()
+                                st.success("Offer submitted. Waiting for seller's response.")
+                                st.rerun()
+                    except Exception as e:
+                        sb.rollback()
+                        st.error(f"Error placing offer: {e}")
+                    finally:
+                        sb.close()
 
 
 def render_my_listings():
@@ -871,7 +877,7 @@ def render_my_listings():
                     sb = Session()
                     try:
                         bid_rows = sb.execute(text("""
-                            SELECT b.amount, b.placed_at, u.email AS bidder
+                            SELECT  b.id AS bid_id, b.amount, b.placed_at, u.email AS bidder
                             FROM bids b
                             JOIN users u ON u.id = b.bidder_id
                             WHERE b.item_id = :iid
@@ -885,6 +891,42 @@ def render_my_listings():
                     else:
                         for br in bid_rows[:20]:
                             st.write(f"- ${float(br['amount']):.2f} by {br['bidder']} at {br['placed_at']}")
+
+                            if r["listing_type"] == "fixed" and r["status"] == "active":
+                                if st.button("Accept this offer", key=f"accept_{br['bid_id']}"):
+                                    sb2 = Session()
+                                    try:
+                                        # Mark this bid as accepted, others as not accepted
+                                        sb2.execute(text("""
+                                            UPDATE bids
+                                            SET status = CASE
+                                                WHEN bidder_id = (SELECT id FROM users WHERE email = :email) THEN 'accepted'
+                                                ELSE 'not_accepted'
+                                            END
+                                            WHERE item_id = :iid
+                                        """), {"iid": str(r["id"]), "email": br["bidder"]})
+
+                                        # Update item status
+                                        sb2.execute(text("""
+                                            UPDATE items
+                                            SET status = 'sold',
+                                                chosen_bid_id = (
+                                                    SELECT id FROM bids
+                                                    WHERE item_id = :iid
+                                                    AND bidder_id = (SELECT id FROM users WHERE email = :email)
+                                                    LIMIT 1
+                                                )
+                                            WHERE id = :iid
+                                        """), {"iid": str(r["id"]), "email": br["bidder"]})
+
+                                        sb2.commit()
+                                        st.success("Offer accepted. Item marked as sold.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        sb2.rollback()
+                                        st.error(f"Failed to accept offer: {e}")
+                                    finally:
+                                        sb2.close()
 
                 # actions
                 colA, colB, colC = st.columns([1,1,3])
@@ -1005,6 +1047,7 @@ def render_my_bids():
             WITH my_bids AS (
                 SELECT DISTINCT ON (b.item_id)
                     b.item_id, b.amount, b.placed_at,
+                    b.status AS bid_status,
                     i.status, i.chosen_bid_id, i.title, i.price AS base_price,
                     (SELECT image_path FROM item_images ii
                      WHERE ii.item_id = i.id
@@ -1028,18 +1071,32 @@ def render_my_bids():
     upload_root = os.getenv("UPLOAD_DIR", "uploads")
     for b in bid_rows:
         # compute bid status dynamically
-        if b["status"] == "sold" and b["chosen_bid_id"]:
-            s2 = Session()
-            try:
-                winner = s2.execute(text("SELECT bidder_id FROM bids WHERE id = :bid"),
-                                    {"bid": str(b["chosen_bid_id"])}).scalar()
-                status_text = "✅ Accepted" if winner == user["id"] else "❌ Declined"
-            finally:
-                s2.close()
+        if b["status"] == "sold":
+            if b["bid_status"] == "accepted":
+                status_text = "✅ Seller accepted your offer"
+            else:
+                status_text = "❌ Seller accepted another buyer"
+
+
+
+        # if b["status"] == "sold" and b["chosen_bid_id"]:
+        #     s2 = Session()
+        #     try:
+        #         winner = s2.execute(text("SELECT bidder_id FROM bids WHERE id = :bid"),
+        #                             {"bid": str(b["chosen_bid_id"])}).scalar()
+        #         if winner == user["id"]:
+        #             status_text = "✅ Seller accepted your offer"
+        #         else:
+        #             status_text = "❌ Seller accepted another buyer"
+        #     finally:
+        #         s2.close()
         elif b["status"] == "active":
-            status_text = "⏳ Waiting for seller’s response"
-        else:
-            status_text = f"⚪ {b['status'].capitalize()}"
+            if b["status"] == "not_accepted":
+                status_text = "❌ Seller did not accept your offer"
+            elif b["status"] == "accepted":
+                status_text = "✅ Seller accepted your offer"
+            else:
+                status_text = "⏳ Waiting for seller"
 
         with st.container(border=True):
             c1, c2 = st.columns([1, 3])
