@@ -288,37 +288,109 @@ def render_logged_out():
 #                             st.error(msg)
 
 
-def render_logged_in():
-    # Sidebar nav ONLY when logged in
-    PAGES = ["Home", "Post Item", "My Listings", "My Purchases", "My Bids"]
-    if "selected_page" not in st.session_state:
-        st.session_state.selected_page = "Home"
-    st.sidebar.success(f"Logged in as {st.session_state.user['name']}")
-    if st.sidebar.button("Log out"):
-        st.session_state.user = None
-        st.rerun()
+# Before UI changes
+# def render_logged_in():
+#     # Sidebar nav ONLY when logged in
+#     PAGES = ["Home", "Post Item", "My Listings", "My Purchases", "My Bids"]
+#     if "selected_page" not in st.session_state:
+#         st.session_state.selected_page = "Home"
+#     st.sidebar.success(f"Logged in as {st.session_state.user['name']}")
+#     if st.sidebar.button("Log out"):
+#         st.session_state.user = None
+#         st.rerun()
 
-    page = st.sidebar.radio("Navigation", PAGES, index=PAGES.index(st.session_state.selected_page))
-    st.session_state.selected_page = page
+#     page = st.sidebar.radio("Navigation", PAGES, index=PAGES.index(st.session_state.selected_page))
+#     st.session_state.selected_page = page
 
-    st.title("🛒 Rutgers Marketplace")
-    st.caption("Rutgers-only, safe student-to-student marketplace")
+#     st.title("🛒 Rutgers Marketplace")
+#     st.caption("Rutgers-only, safe student-to-student marketplace")
 
-    if page == "Home":
-        render_browse_items()
+#     if page == "Home":
+#         render_browse_items()
 
-    elif page == "Post Item":
-        render_post_item()
+#     elif page == "Post Item":
+#         render_post_item()
 
-    elif page == "My Listings":
-        render_my_listings()
+#     elif page == "My Listings":
+#         render_my_listings()
     
-    elif page == "My Purchases":
-        render_my_purchases()
+#     elif page == "My Purchases":
+#         render_my_purchases()
         
-    elif page == "My Bids":
+#     elif page == "My Bids":
+#         render_my_bids()
+
+
+def render_logged_in():
+    
+
+    # --- HEADER ---
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.image("app/rutgers_logo_final.png", width=350)
+
+    with col2:
+        st.markdown(
+            '''
+            <div style="text-align: right;">
+                <h3 style="margin-bottom: 5px;">Welcome to your marketplace</h3>
+                <input type="text" placeholder="Search..." 
+                    style="width: 60%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+            ''',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("---")
+
+    # --- NAV TABS ---
+    tabs = ["Home", "Post Item", "My Listings", "My Purchases", "My Bids"]
+    selected_tab = st.radio(
+        label="Navigation",
+        options=tabs,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    # --- Custom CSS for Tabs ---
+    st.markdown("""
+        <style>
+        div[data-baseweb="radio"] > div {
+            justify-content: center;
+        }
+        div[data-baseweb="radio"] label {
+            background-color: #CC0033;
+            color: white;
+            font-weight: bold;
+            border-radius: 6px;
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        div[data-baseweb="radio"] input:checked + div {
+            background-color: #800000 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Render the selected page content
+    if selected_tab == "Home":
+        render_browse_items()
+    elif selected_tab == "Post Item":
+        render_post_item()
+    elif selected_tab == "My Listings":
+        render_my_listings()
+    elif selected_tab == "My Purchases":
+        render_my_purchases()
+    elif selected_tab == "My Bids":
         render_my_bids()
 
+    st.markdown("---")
+    st.markdown(f"Logged in as **{st.session_state.user['name']}**")
+    if st.button("Log out"):
+        st.session_state.user = None
+        st.rerun()
 
 
 
@@ -351,6 +423,7 @@ def render_post_item():
         title = st.text_input("Title")
         description = st.text_area("Description", height=120)
         pickup_location = st.text_input("Pickup Location (e.g., College Ave, Livingston)", max_chars=100)
+        nearest_campus = st.selectbox("Nearest Campus", ["Busch", "College Ave", "Livingston", "SoCam"])
         listing_type = st.radio("Listing type", ["auction", "fixed"], horizontal=True)
         if listing_type == "fixed":
             buy_now_price = st.number_input("Price (USD)", min_value=0.0, value=10.0, step=1.0)
@@ -395,6 +468,7 @@ def render_post_item():
                 listing_type=listing_type,
                 buy_now_price=buy_now_price,
                 pickup_location=pickup_location.strip() or None,
+                pickup_campus=nearest_campus,
                 pickup_lat=None,  # for future
                 pickup_lng=None   # for future
             )
@@ -426,6 +500,11 @@ def render_browse_items():
 
     st.subheader("Browse Items")
 
+    # Initialize pagination state
+    if "browse_page" not in st.session_state:
+        st.session_state.browse_page = 1
+
+
     # If we're viewing a specific item, render detail with a Back button
     viewing_id = st.session_state.get("viewing_item_id")
     if viewing_id:
@@ -439,38 +518,61 @@ def render_browse_items():
 
 
     # Filters row
-    col1, col2, col3, col4 = st.columns([40, 15, 7, 0.7])
+    col1, col2, col3, col4 = st.columns([4, 3, 4, 2])
 
     # Load categories for dropdown
     s = Session()
     try:
         cats = s.query(Category).order_by(Category.name).all()
         cat_names = ["All categories"] + [c.name for c in cats]
+        price_bounds = s.execute(text("SELECT MIN(price), MAX(price) FROM items WHERE status = 'active'")).first()
+        price_min, price_max = price_bounds if price_bounds else (0, 100)
     finally:
         s.close()
 
+
     with col1:
-        q = st.text_input("Search", placeholder="title or description…").strip()
+        selected_cat = st.selectbox("Category", cat_names)
+
     with col2:
-        selected_cat = st.selectbox("Category", cat_names, index=0)
+        location = st.selectbox("Location", ["All", "Busch", "College Ave", "Livingston", "SoCam"])
+
     with col3:
-        page_size = st.selectbox("Page size", [6, 9, 12, 15, 20], index=1)
+        price_range = st.slider("Price Range (USD)", min_value=float(price_min or 0), max_value=float(price_max or 100), value=(float(price_min or 0), float(price_max or 100)), step = 50.0)
+
     with col4:
-        # page index in session so pagination persists on reruns
-        if "browse_page" not in st.session_state:
-            st.session_state.browse_page = 1
+        page_size = st.selectbox("Page size", [6, 9, 12, 15, 20], index=1)
+
+    # with col1:
+    #     q = st.text_input("Search", placeholder="title or description…").strip()
+    # with col2:
+    #     selected_cat = st.selectbox("Category", cat_names, index=0)
+    # with col3:
+    #     page_size = st.selectbox("Page size", [6, 9, 12, 15, 20], index=1)
+    # with col4:
+    #     # page index in session so pagination persists on reruns
+    #     if "browse_page" not in st.session_state:
+    #         st.session_state.browse_page = 1
 
     # Build WHERE clause
     where = ["i.status = 'active'"]
     params = {}
 
-    if q:
-        where.append("(i.title ILIKE :q OR i.description ILIKE :q)")
-        params["q"] = f"%{q}%"
+    # if q:
+    #     where.append("(i.title ILIKE :q OR i.description ILIKE :q)")
+    #     params["q"] = f"%{q}%"
 
     if selected_cat != "All categories":
         where.append("c.name = :cat_name")
         params["cat_name"] = selected_cat
+
+    if location != "All":
+        where.append("i.pickup_campus = :location")
+        params["location"] = location
+
+    where.append("i.price BETWEEN :min_price AND :max_price")
+    params["min_price"] = price_range[0]
+    params["max_price"] = price_range[1]
 
     where_sql = " AND ".join(where) if where else "TRUE"
 
@@ -496,6 +598,8 @@ def render_browse_items():
             JOIN users u ON u.id = i.seller_id
             WHERE i.status = 'active'
             {"AND ci.name = :cat_name" if selected_cat != "All categories" else ""}
+            {"AND i.pickup_location = :location" if location != "All" else ""}
+            AND i.price BETWEEN :min_price AND :max_price
             ORDER BY i.created_at DESC
         ),
         img AS (

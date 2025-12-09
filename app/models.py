@@ -33,8 +33,11 @@ class Item(Base):
     listing_type: Mapped[str]    = mapped_column(Text, nullable=False, default="auction")
     buy_now_price: Mapped[float | None] = mapped_column(Numeric(10,2))
     pickup_location: Mapped[str | None] = mapped_column(Text)
+    pickup_campus: Mapped[str | None] = mapped_column(Text)
     pickup_lat: Mapped[float | None] = mapped_column()
     pickup_lng: Mapped[float | None] = mapped_column()
+    
+
 
 
 
