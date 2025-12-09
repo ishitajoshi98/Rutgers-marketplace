@@ -788,9 +788,13 @@ def render_item_detail(item_id_str: str):
                 elif user["email"] == item_row["seller_email"]:
                     st.info("You are the seller; you cannot bid on your own item.")
                 else:
+                    if st.session_state.get("just_bid"):
+                        st.session_state.pop("just_bid")
+                        
                     with st.form("place_bid_form", clear_on_submit=False):
                         min_bid = max(current_highest + 1.00, 1.00)
-                        bid_amount = st.number_input("Your bid (USD)", min_value=min_bid, value=min_bid, step=1.00)
+                        default_bid = 0.0 if st.session_state.get("just_bid") else min_bid
+                        bid_amount = st.number_input("Your bid (USD)", min_value=min_bid, value=default_bid, step=1.00)
                         placed = st.form_submit_button("Place Bid", use_container_width=True)
 
                     if placed:
@@ -804,6 +808,7 @@ def render_item_detail(item_id_str: str):
                             bid_id = res.scalar_one()
                             sb.commit()
                             st.success("Bid placed successfully.")
+                            st.session_state["just_bid"] = True
                             st.rerun()
                         except Exception as e:
                             sb.rollback()
@@ -981,10 +986,10 @@ def render_my_listings():
                     sb = Session()
                     try:
                         bid_rows = sb.execute(text("""
-                            SELECT  b.id AS bid_id, b.amount, b.placed_at, u.email AS bidder
+                            SELECT  b.id AS bid_id, b.amount, b.placed_at, u.email AS bidder, b.status
                             FROM bids b
                             JOIN users u ON u.id = b.bidder_id
-                            WHERE b.item_id = :iid
+                            WHERE b.item_id = :iid AND b.status != 'declined'
                             ORDER BY b.amount DESC, b.placed_at DESC
                         """), {"iid": str(r["id"])}).mappings().all()
                     finally:
@@ -1029,9 +1034,72 @@ def render_my_listings():
                                     except Exception as e:
                                         sb2.rollback()
                                         st.error(f"Failed to accept offer: {e}")
-                                    finally:
-                                        sb2.close()
 
+                            elif r["listing_type"] == "auction":
+
+                                bidding_open = (r["status"] == "active")
+
+                                if bidding_open:
+                                    col1, col2 = st.columns(2)
+
+                                    # ACCEPT BID
+                                    with col1:
+                                        if st.button("Accept", key=f"accept_auction_{br['bid_id']}"):
+                                            sb2 = Session()
+                                            try:
+                                                # 1. Accept this bid
+                                                sb2.execute(text("""
+                                                    UPDATE bids
+                                                    SET status = 'accepted'
+                                                    WHERE id = :bid_id
+                                                """), {"bid_id": str(br["bid_id"])})
+
+                                                # 2. Decline all others
+                                                sb2.execute(text("""
+                                                    UPDATE bids
+                                                    SET status = 'declined'
+                                                    WHERE item_id = :iid AND id != :bid_id
+                                                """), {"iid": str(r["id"]), "bid_id": str(br["bid_id"])})
+
+                                                # 3. Update item
+                                                sb2.execute(text("""
+                                                    UPDATE items
+                                                    SET status = 'sold',
+                                                        chosen_bid_id = :bid_id
+                                                    WHERE id = :iid
+                                                """), {"iid": str(r["id"]), "bid_id": str(br["bid_id"])})
+
+                                                sb2.commit()
+                                                st.success("Bid accepted. Item marked as sold.")
+                                                st.rerun()
+                                            except Exception as e:
+                                                sb2.rollback()
+                                                st.error(f"Failed to accept bid: {e}")
+                                            finally:
+                                                sb2.close()
+
+                                    # DECLINE BID
+                                    with col2:
+                                        if st.button("Decline", key=f"decline_auction_{br['bid_id']}"):
+                                            sb2 = Session()
+                                            try:
+                                                sb2.execute(text("""
+                                                    UPDATE bids
+                                                    SET status = 'declined'
+                                                    WHERE id = :bid_id
+                                                """), {"bid_id": str(br["bid_id"])})
+
+                                                sb2.commit()
+                                                st.info("Bid declined.")
+                                                st.rerun()
+                                            except Exception as e:
+                                                sb2.rollback()
+                                                st.error(f"Failed to decline bid: {e}")
+                                            finally:
+                                                sb2.close()
+
+                                else:
+                                    st.caption("Bidding is closed for this item.")
                 # actions
                 colA, colB, colC = st.columns([1,1,3])
                 with colA:
@@ -1174,33 +1242,57 @@ def render_my_bids():
 
     upload_root = os.getenv("UPLOAD_DIR", "uploads")
     for b in bid_rows:
-        # compute bid status dynamically
-        if b["status"] == "sold":
-            if b["bid_status"] == "accepted":
+        # compute bid status dynamically (correct logic)
+        item_status = b["status"]       # item-level status
+        my_bid_status = b["bid_status"] # this specific user's bid status
+
+        if item_status == "sold":
+            if my_bid_status == "accepted":
                 status_text = "✅ Seller accepted your offer"
             else:
                 status_text = "❌ Seller accepted another buyer"
 
+        elif item_status == "closed":
+            status_text = "⚠️ Auction closed — no winning bid"
 
-
-        # if b["status"] == "sold" and b["chosen_bid_id"]:
-        #     s2 = Session()
-        #     try:
-        #         winner = s2.execute(text("SELECT bidder_id FROM bids WHERE id = :bid"),
-        #                             {"bid": str(b["chosen_bid_id"])}).scalar()
-        #         if winner == user["id"]:
-        #             status_text = "✅ Seller accepted your offer"
-        #         else:
-        #             status_text = "❌ Seller accepted another buyer"
-        #     finally:
-        #         s2.close()
-        elif b["status"] == "active":
-            if b["status"] == "not_accepted":
-                status_text = "❌ Seller did not accept your offer"
-            elif b["status"] == "accepted":
+        elif item_status == "active":
+            if my_bid_status == "accepted":
                 status_text = "✅ Seller accepted your offer"
+            elif my_bid_status == "declined":
+                status_text = "❌ Seller did not accept your offer"
             else:
-                status_text = "⏳ Waiting for seller"
+                status_text = "⏳ Awaiting seller response"
+
+        else:
+            status_text = "⏳ Waiting for seller"
+
+        # # compute bid status dynamically
+        # if b["status"] == "sold":
+        #     if b["bid_status"] == "accepted":
+        #         status_text = "✅ Seller accepted your offer"
+        #     else:
+        #         status_text = "❌ Seller accepted another buyer"
+
+
+
+        # # if b["status"] == "sold" and b["chosen_bid_id"]:
+        # #     s2 = Session()
+        # #     try:
+        # #         winner = s2.execute(text("SELECT bidder_id FROM bids WHERE id = :bid"),
+        # #                             {"bid": str(b["chosen_bid_id"])}).scalar()
+        # #         if winner == user["id"]:
+        # #             status_text = "✅ Seller accepted your offer"
+        # #         else:
+        # #             status_text = "❌ Seller accepted another buyer"
+        # #     finally:
+        # #         s2.close()
+        # elif b["status"] == "active":
+        #     if b["status"] == "declined":
+        #         status_text = "❌ Seller did not accept your offer"
+        #     elif b["status"] == "accepted":
+        #         status_text = "✅ Seller accepted your offer"
+        #     else:
+        #         status_text = "⏳ Awaiting seller response"
 
         with st.container(border=True):
             c1, c2 = st.columns([1, 3])
@@ -1212,7 +1304,8 @@ def render_my_bids():
                     st.caption("No image")
             with c2:
                 st.markdown(f"**{b['title']}** — Your bid: ${float(b['amount']):.2f}")
-                st.caption(f"Item status: {b['status']} • {status_text}")
+                st.caption(status_text)
+                #st.caption(f"Item status: {b['status']} • {status_text}")
 
 
 
