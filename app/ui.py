@@ -424,7 +424,11 @@ def render_post_item():
         description = st.text_area("Description", height=120)
         pickup_location = st.text_input("Pickup Location (e.g., College Ave, Livingston)", max_chars=100)
         nearest_campus = st.selectbox("Nearest Campus", ["Busch", "College Ave", "Livingston", "SoCam"])
-        listing_type = st.radio("Listing type", ["auction", "fixed"], horizontal=True)
+        options_display = ["Auction", "Fixed"]
+        mapping = {"Auction": "auction", "Fixed": "fixed"}
+        choice = st.radio("Listing type", options_display, horizontal=True)
+        listing_type = mapping[choice]
+        #listing_type = st.radio("Listing type", ["auction", "fixed"], horizontal=True)
         if listing_type == "fixed":
             buy_now_price = st.number_input("Price (USD)", min_value=0.0, value=10.0, step=1.0)
             price = buy_now_price  # keep same var name used below
@@ -527,6 +531,16 @@ def render_browse_items():
         cat_names = ["All categories"] + [c.name for c in cats]
         price_bounds = s.execute(text("SELECT MIN(price), MAX(price) FROM items WHERE status = 'active'")).first()
         price_min, price_max = price_bounds if price_bounds else (0, 100)
+        # --- FIX: Ensure slider never breaks when min == max or DB is empty ---
+        # Handle None values (empty table)
+        if price_min is None:
+            price_min = 0
+        if price_max is None:
+            price_max = 100
+        # Avoid min == max which breaks Streamlit slider
+        if price_min == price_max:
+            price_min = 0
+            price_max = float(price_max) + 50
     finally:
         s.close()
 
@@ -774,7 +788,7 @@ def render_item_detail(item_id_str: str):
 
         st.write(item_row["description"])
         st.write(f"**Price:** ${item_row['price']:.2f}")
-        st.write(f"**Status:** {item_row['status']} • **Type:** {item_row['listing_type']}")
+        st.write(f"**Type:** {item_row['listing_type'].capitalize()}")
 
         user = st.session_state.user
 
@@ -876,7 +890,11 @@ def render_my_listings():
     # filters for status
     col_s1, col_s2 = st.columns([2, 1])
     with col_s1:
-        status_filter = st.selectbox("Status", ["all", "active", "closed", "sold"], index=0)
+        status_display = ["All", "Active", "Closed"]
+        status_internal = ["all", "active", "closed"]
+        selected_display = st.selectbox("Status", status_display, index=0)
+        status_filter = status_internal[status_display.index(selected_display)]
+        #status_filter = st.selectbox("Status", ["all", "active", "closed"], index=0)
     with col_s2:
         page_size = st.selectbox("Page size", [5, 10, 15, 20], index=1)
 
@@ -889,8 +907,11 @@ def render_my_listings():
     params = {"sid": user["id"]}
 
     if status_filter != "all":
-        where.append("i.status = :status")
-        params["status"] = status_filter
+        if status_filter == "closed":
+            where.append("i.status IN ('closed', 'sold')")
+        else:
+            where.append("i.status = :status")
+            params["status"] = status_filter
 
     where_sql = " AND ".join(where)
 
@@ -1104,7 +1125,7 @@ def render_my_listings():
                 colA, colB, colC = st.columns([1,1,3])
                 with colA:
                     disable_close = (r["status"] != "active")
-                    if st.button("Close", key=f"close_{r['id']}", disabled=disable_close, use_container_width=True):
+                    if st.button("Close listing", key=f"close_{r['id']}", disabled=disable_close, use_container_width=True):
                         sb = Session()
                         try:
                             sb.execute(text("UPDATE items SET status = 'closed' WHERE id = :iid"), {"iid": str(r["id"])})
@@ -1114,36 +1135,6 @@ def render_my_listings():
                         except Exception as e:
                             sb.rollback()
                             st.error(f"Failed to close: {e}")
-                        finally:
-                            sb.close()
-
-                with colB:
-                    disable_sell = (r["status"] != "closed")
-                    if st.button("Mark Sold (to highest)", key=f"sold_{r['id']}", disabled=disable_sell, use_container_width=True):
-                        sb = Session()
-                        try:
-                            # get highest bid id
-                            top = sb.execute(text("""
-                                SELECT id FROM bids
-                                WHERE item_id = :iid
-                                ORDER BY amount DESC, placed_at ASC
-                                LIMIT 1
-                            """), {"iid": str(r["id"])}).mappings().first()
-
-                            if not top:
-                                st.error("No bids to sell to. Close without sale or wait for bids.")
-                            else:
-                                sb.execute(text("""
-                                    UPDATE items
-                                    SET status = 'sold', chosen_bid_id = :bid
-                                    WHERE id = :iid
-                                """), {"iid": str(r["id"]), "bid": str(top["id"])})
-                                sb.commit()
-                                st.success("Marked as sold to highest bidder.")
-                                st.rerun()
-                        except Exception as e:
-                            sb.rollback()
-                            st.error(f"Failed to mark sold: {e}")
                         finally:
                             sb.close()
 
@@ -1197,7 +1188,6 @@ def render_my_purchases():
             with c2:
                 st.markdown(f"**{p['title']}** — ${float(p['price']):.2f}")
                 st.caption(f"Category: {p['category']} • Seller: {p['seller_email']}")
-                st.write(f"**Status:** {p['status'].capitalize()}")
 
 
 
