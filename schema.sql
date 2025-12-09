@@ -1,8 +1,3 @@
--- ---- Lookup types as CHECKs (more flexible than ENUMs for class projects) ----
--- item status: active (listed), closed (no longer accepting bids), sold (winner chosen)
--- listing type: auction or fixed (buy-now only)
--- NOTE: keep as CHECKs so you can add more values later without ALTER TYPE hassles.
-
 -- ---- USERS ----
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,7 +79,7 @@ ALTER TABLE items
   ADD CONSTRAINT fk_items_chosen_bid
     FOREIGN KEY (chosen_bid_id) REFERENCES bids(id) ON DELETE SET NULL;
 
--- ---- Optional safety trigger: prevent bids on non-active items ----
+-- ---- Safety trigger: prevent bids on non-active items ----
 CREATE OR REPLACE FUNCTION prevent_bids_on_inactive() RETURNS TRIGGER AS $$
 DECLARE s TEXT;
 BEGIN
@@ -99,7 +94,7 @@ DROP TRIGGER IF EXISTS trg_bids_only_on_active ON bids;
 CREATE TRIGGER trg_bids_only_on_active
   BEFORE INSERT ON bids FOR EACH ROW EXECUTE FUNCTION prevent_bids_on_inactive();
 
--- ---- Optional safety trigger: seller cannot bid on own item ----
+-- ---- Safety trigger: seller cannot bid on own item ----
 CREATE OR REPLACE FUNCTION prevent_self_bidding() RETURNS TRIGGER AS $$
 DECLARE seller UUID;
 BEGIN

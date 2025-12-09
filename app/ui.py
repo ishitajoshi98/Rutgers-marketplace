@@ -75,29 +75,6 @@ load_dotenv()
 
 st.set_page_config(page_title="Rutgers Marketplace!", page_icon="🛒", layout="wide")
 
-# # Force global font override in Streamlit
-# st.markdown("""
-#     <style>
-#         /* Apply Book Antiqua for all text globally */
-#         html, body, [class*="st-"], [data-testid="stAppViewContainer"] * {
-#             font-family: 'Book Antiqua', 'Bookman Old Style', serif !important;
-#         }
-
-#         /* Make titles specifically use Bookman Old Style */
-#         h1, h2, h3, .auth-title, .stMarkdown h2 {
-#             font-family: 'Bookman Old Style', serif !important;
-#             color: white !important;
-#         }
-
-#         /* Optional: make captions softer */
-#         .auth-caption {
-#             color: #dddddd !important;
-#             font-family: 'Book Antiqua', serif !important;
-#         }
-#     </style>
-# """, unsafe_allow_html=True)
-
-
 
 # --- session bootstrap ---
 if "user" not in st.session_state:
@@ -110,9 +87,6 @@ try:
 except Exception as e:
     _auth_available = False
     print("AUTH_IMPORT_ERROR: ", e)
-
-
-
 
 
 #BOXED LAYOUT
@@ -212,113 +186,6 @@ def render_logged_out():
                                 st.error(msg)
 
             st.markdown('</div>', unsafe_allow_html=True)  # close .boxed-inner
-
-
-
-
-# OG LAYOUT
-# def render_logged_out():
-#     # Hide sidebar when logged out for a cleaner look
-#     st.markdown("""
-#         <style>
-#             section[data-testid="stSidebar"] { display: none !important; }
-#             .auth-title, h2.auth-title, div[data-testid="stMarkdownContainer"] h2.auth-title {text-align: center;
-#             margin-bottom: 6px; font-size: 60px !important; line-height: 1.2;} 
-#             .auth-caption { text-align: center;  margin-bottom: 18px; }
-#             .auth-tabs [data-baseweb="tab-list"] { justify-content: center; }
-#         </style>
-#     """, unsafe_allow_html=True)
-
-#     #.auth-title { text-align: center; margin-bottom: 6px; font-size: 45px;}
-#     #color: #6b7280;
-    
-
-
-#     # Center column layout: empty | content | empty
-#     left, center, right = st.columns([1, 2, 1])
-#     with center:
-#         # Title & caption (centered)
-#         st.markdown('<h2 class="auth-title">🛒 Rutgers Marketplace</h2>', unsafe_allow_html=True)
-#         st.markdown('<div class="auth-caption">Rutgers-only, safe student-to-student marketplace</div>', unsafe_allow_html=True)
-
-#         if not _auth_available:
-#             st.info("Auth backend not implemented yet (we'll add it in the next step). Buttons are disabled for now.")
-
-#         st.divider()
-
-#         # Centered tabs
-#         tab_login, tab_register = st.tabs(["🔑 Login", "🆕 Register"])
-#         with tab_login:
-#             with st.form("login_form", clear_on_submit=False):
-#                 email = st.text_input("Rutgers Email", placeholder="you@rutgers.edu")
-#                 password = st.text_input("Password", type="password")
-#                 submitted = st.form_submit_button("Login", use_container_width=True)
-
-#             if submitted:
-#                 if not _auth_available:
-#                     st.error("Auth backend not loaded. Restart Streamlit from the project root.")
-#                 else:
-#                     user = authenticate_user(email, password)
-#                     if user:
-#                         st.session_state.user = {"id": str(user.id), "name": user.name, "email": user.email}
-#                         st.success("Logged in successfully.")
-#                         st.rerun()
-#                     else:
-#                         st.error("Invalid email or password.")
-
-#         with tab_register:
-#             with st.form("register_form", clear_on_submit=False):
-#                 name = st.text_input("Full Name", placeholder="Jane Doe")
-#                 email_new = st.text_input("Rutgers Email (@rutgers.edu or @scarletmail.rutgers.edu)", placeholder="netid@rutgers.edu")
-#                 password_new = st.text_input("Password (min 6 chars)", type="password")
-#                 submitted_r = st.form_submit_button("Create Account", use_container_width=True)
-
-#             if submitted_r:
-#                 if not _auth_available:
-#                     st.error("Auth backend not loaded. Restart Streamlit from the project root.")
-#                 else:
-#                     if not is_rutgers_email(email_new):
-#                         st.error("Please use a Rutgers email address.")
-#                     else:
-#                         ok, msg = register_user(name, email_new, password_new)
-#                         if ok:
-#                             st.success(msg)
-#                             st.info("Now switch to the Login tab to sign in.")
-#                         else:
-#                             st.error(msg)
-
-
-# Before UI changes
-# def render_logged_in():
-#     # Sidebar nav ONLY when logged in
-#     PAGES = ["Home", "Post Item", "My Listings", "My Purchases", "My Bids"]
-#     if "selected_page" not in st.session_state:
-#         st.session_state.selected_page = "Home"
-#     st.sidebar.success(f"Logged in as {st.session_state.user['name']}")
-#     if st.sidebar.button("Log out"):
-#         st.session_state.user = None
-#         st.rerun()
-
-#     page = st.sidebar.radio("Navigation", PAGES, index=PAGES.index(st.session_state.selected_page))
-#     st.session_state.selected_page = page
-
-#     st.title("🛒 Rutgers Marketplace")
-#     st.caption("Rutgers-only, safe student-to-student marketplace")
-
-#     if page == "Home":
-#         render_browse_items()
-
-#     elif page == "Post Item":
-#         render_post_item()
-
-#     elif page == "My Listings":
-#         render_my_listings()
-    
-#     elif page == "My Purchases":
-#         render_my_purchases()
-        
-#     elif page == "My Bids":
-#         render_my_bids()
 
 
 def render_logged_in():
@@ -423,7 +290,7 @@ def render_post_item():
         title = st.text_input("Title")
         description = st.text_area("Description", height=120)
         pickup_location = st.text_input("Pickup Location (e.g., College Ave, Livingston)", max_chars=100)
-        nearest_campus = st.selectbox("Nearest Campus", ["Busch", "College Ave", "Livingston", "SoCam"])
+        nearest_campus = st.selectbox("Nearest Campus", ["Busch", "College Ave", "Livingston", "Cook Douglas"])
         options_display = ["Auction", "Fixed"]
         mapping = {"Auction": "auction", "Fixed": "fixed"}
         choice = st.radio("Listing type", options_display, horizontal=True)
@@ -549,7 +416,7 @@ def render_browse_items():
         selected_cat = st.selectbox("Category", cat_names)
 
     with col2:
-        location = st.selectbox("Location", ["All", "Busch", "College Ave", "Livingston", "SoCam"])
+        location = st.selectbox("Location", ["All", "Busch", "College Ave", "Livingston", "Cook Douglas"])
 
     with col3:
         price_range = st.slider("Price Range (USD)", min_value=float(price_min or 0), max_value=float(price_max or 100), value=(float(price_min or 0), float(price_max or 100)), step = 50.0)
@@ -557,24 +424,10 @@ def render_browse_items():
     with col4:
         page_size = st.selectbox("Page size", [6, 9, 12, 15, 20], index=1)
 
-    # with col1:
-    #     q = st.text_input("Search", placeholder="title or description…").strip()
-    # with col2:
-    #     selected_cat = st.selectbox("Category", cat_names, index=0)
-    # with col3:
-    #     page_size = st.selectbox("Page size", [6, 9, 12, 15, 20], index=1)
-    # with col4:
-    #     # page index in session so pagination persists on reruns
-    #     if "browse_page" not in st.session_state:
-    #         st.session_state.browse_page = 1
 
     # Build WHERE clause
     where = ["i.status = 'active'"]
     params = {}
-
-    # if q:
-    #     where.append("(i.title ILIKE :q OR i.description ILIKE :q)")
-    #     params["q"] = f"%{q}%"
 
     if selected_cat != "All categories":
         where.append("c.name = :cat_name")
@@ -612,7 +465,7 @@ def render_browse_items():
             JOIN users u ON u.id = i.seller_id
             WHERE i.status = 'active'
             {"AND ci.name = :cat_name" if selected_cat != "All categories" else ""}
-            {"AND i.pickup_location = :location" if location != "All" else ""}
+            {"AND i.pickup_campus = :location" if location != "All" else ""}
             AND i.price BETWEEN :min_price AND :max_price
             ORDER BY i.created_at DESC
         ),
@@ -800,7 +653,7 @@ def render_item_detail(item_id_str: str):
                 if not user:
                     st.warning("Log in to place a bid.")
                 elif user["email"] == item_row["seller_email"]:
-                    st.info("You are the seller; you cannot bid on your own item.")
+                    st.info("You are the seller. You cannot bid on your own item!")
                 else:
                     if st.session_state.get("just_bid"):
                         st.session_state.pop("just_bid")
@@ -841,7 +694,7 @@ def render_item_detail(item_id_str: str):
                 if not user:
                     st.warning("Log in to purchase.")
                 elif user["email"] == item_row["seller_email"]:
-                    st.info("You are the seller; you cannot purchase your own item.")
+                    st.info("You are the seller. You cannot bid on your own item!")
                 else:
                     sb = Session()
                     try:
@@ -855,9 +708,9 @@ def render_item_detail(item_id_str: str):
                             if existing["status"] == "accepted":
                                 st.success("Seller accepted your offer!")
                             else:
-                                st.info("Your offer is already submitted. Waiting for seller to respond.")
+                                st.info("Waiting for seller to respond.")
                         else:
-                            if st.button("Buy Now", type="primary", use_container_width=True):
+                            if st.button("I'm Interested", type="primary", use_container_width=True):
                                 sb.execute(text("""
                                     INSERT INTO bids (item_id, bidder_id, amount, status)
                                     VALUES (:iid, :bidder, :amt, 'not_accepted')
@@ -867,7 +720,7 @@ def render_item_detail(item_id_str: str):
                                     "amt": float(item_row["price"])
                                 })
                                 sb.commit()
-                                st.success("Offer submitted. Waiting for seller's response.")
+                                st.success("Waiting for seller to respond.")
                                 st.rerun()
                     except Exception as e:
                         sb.rollback()
@@ -1256,34 +1109,6 @@ def render_my_bids():
         else:
             status_text = "⏳ Waiting for seller"
 
-        # # compute bid status dynamically
-        # if b["status"] == "sold":
-        #     if b["bid_status"] == "accepted":
-        #         status_text = "✅ Seller accepted your offer"
-        #     else:
-        #         status_text = "❌ Seller accepted another buyer"
-
-
-
-        # # if b["status"] == "sold" and b["chosen_bid_id"]:
-        # #     s2 = Session()
-        # #     try:
-        # #         winner = s2.execute(text("SELECT bidder_id FROM bids WHERE id = :bid"),
-        # #                             {"bid": str(b["chosen_bid_id"])}).scalar()
-        # #         if winner == user["id"]:
-        # #             status_text = "✅ Seller accepted your offer"
-        # #         else:
-        # #             status_text = "❌ Seller accepted another buyer"
-        # #     finally:
-        # #         s2.close()
-        # elif b["status"] == "active":
-        #     if b["status"] == "declined":
-        #         status_text = "❌ Seller did not accept your offer"
-        #     elif b["status"] == "accepted":
-        #         status_text = "✅ Seller accepted your offer"
-        #     else:
-        #         status_text = "⏳ Awaiting seller response"
-
         with st.container(border=True):
             c1, c2 = st.columns([1, 3])
             with c1:
@@ -1295,11 +1120,6 @@ def render_my_bids():
             with c2:
                 st.markdown(f"**{b['title']}** — Your bid: ${float(b['amount']):.2f}")
                 st.caption(status_text)
-                #st.caption(f"Item status: {b['status']} • {status_text}")
-
-
-
-
 
 # --- Gate the app ---
 if st.session_state.user is None:

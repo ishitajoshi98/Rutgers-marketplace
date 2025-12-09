@@ -36,10 +36,6 @@ class Item(Base):
     pickup_campus: Mapped[str | None] = mapped_column(Text)
     pickup_lat: Mapped[float | None] = mapped_column()
     pickup_lng: Mapped[float | None] = mapped_column()
-    
-
-
-
 
 class ItemImage(Base):
     __tablename__ = "item_images"
