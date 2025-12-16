@@ -1,24 +1,39 @@
 # Rutgers Marketplace
 
-Students often face difficulties buying and selling items such as furniture, bikes, and textbooks when moving in or out of on-campus/off-campus housing. Current solutions (e.g., Facebook groups, Whatsapp groups, word-of-mouth) are unorganized and filled with scammers. This results in wasted time, unfair pricing and items left unsold.
+Students often face difficulties buying and selling items such as furniture, bikes and textbooks when moving in or out of on-campus/off-campus housing. Current solutions (e.g., Facebook groups, Whatsapp groups, word-of-mouth) are unorganized and filled with scammers. This results in wasted time, unfair pricing and items left unsold.
 This app offers a simple student-to-student marketplace for Rutgers to solve this problem
 
-### How the app works:
+## ✨ Overview
 
-Students can post items they want to sell by adding details like images, price, and category, and other students can browse these listings and place bids. The seller can then accept the highest bid or choose a buyer, completing the transaction in a safe, organized way.
+Rutgers Marketplace is a full-stack web app designed to make student-to-student buying and selling safe, simple and scam-free.
 
-### ✨ Features
+Students can:
+- Post listings with images, campus info, and pickup locations
+- Browse items by category, campus, or price
+- Place bids or express interest
+- Manage their own listings, bids, and purchases
+- Communicate directly to complete the sale
 
-- Rutgers-only auth (email pattern check) with PBKDF2 password hashing
-- Post items with image upload (stored under uploads/ — S3-ready later)
-- Browse with search, category filters, pagination, inline item detail (+ Back button)
-- Auction bidding (no self-bids; no bids on inactive items) & Fixed price (Buy Now)
-- My Listings for sellers: view bids, Close, Mark Sold (to highest)
+> **Note:** This app does not currently handle payments. The transaction is completed independently by the buyer and seller. This keeps the app lightweight and focused, though payment features can be added in future versions.
 
-### 🧱 Tech Stack
 
-- Frontend: Streamlit (Python)
-- Backend: Python, SQLAlchemy
-- DB: PostgreSQL 18 + extensions pgcrypto, pg_trgm
-- Auth: PBKDF2-SHA256 (passlib)
-- Config: .env (DATABASE_URL, UPLOAD_DIR)
+
+## 💡 Why It Exists
+
+Most students currently use Facebook groups, WhatsApp chats or word-of-mouth to buy or sell items around campus. These methods are messy and often unreliable. Scams, ghosted messages, and lowball offers are common.
+
+**Rutgers Marketplace** was built to solve that by offering a trusted, campus-specific solution that works the way students actually need it to. No spam. No strangers. Just students helping students.
+
+
+
+## 🧠 Features
+
+- ✅ Rutgers-only sign-up
+- 🛍️ Post items for sale or auction
+- 🔍 Filter listings by category, campus or price
+- 💬 Sellers can review bids or offers before accepting
+- 🔁 Full dashboard for managing listings, bids, and purchases
+- 🛡️ Database triggers prevent self-bidding and ensure data integrity
+- 🗂️ Local image uploads (ready to upgrade to S3)
+
+
