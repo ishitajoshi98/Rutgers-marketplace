@@ -42,7 +42,7 @@ if not DATABASE_URL:
 # Debug: show which host we’re actually hitting (no password)
 parsed = urlparse(DATABASE_URL)
 host = parsed.hostname
-st.sidebar.info(f"DB host in use: {host}")
+st.write(f"DB host in use: {host}")
 
 # Create engine; Supabase requires SSL but SQLAlchemy + psycopg2
 # will negotiate this automatically with the URL.
