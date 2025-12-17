@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS bids (
   item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   bidder_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  status TEXT NOT NULL DEFAULT 'pending'
+  CHECK (status IN ('pending', 'accepted', 'declined', 'not_accepted')),
   placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
